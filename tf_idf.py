@@ -1,15 +1,16 @@
 from nltk.corpus import reuters
 from nltk.stem.porter import *
 from nltk.corpus import stopwords
-
-
+import pandas as pd
+import math
 
 __dic = dict()
-__re_dic = {}
 __freq = {}
 __word_freq_vector_file = {}
 __freq_vector_file = {}
 __all_freq = {}
+__TF = {}
+
 
 
 def preprocessing(words):
@@ -35,8 +36,10 @@ def create_global_dictionary_words(words, iterator):
     for word in words:
         if word not in __dic:
             __dic[word] = iterator
-            __re_dic[iterator] = word
             iterator += 1
+            __freq[word] = 1
+        else:
+            __freq[word]+=1
 
 def create_gloal_dictionary_freq_word_file(words, file):
     all_freq = {}
@@ -53,7 +56,6 @@ def create_gloal_dictionary_freq_word_file(words, file):
 def do_dicts_for_all_file():
     #fill global dict with words and fill global dic freq and fill
     iterator = 0
-    i = 0
     for category in reuters.categories():
         for file in reuters.fileids(category):
             words = reuters.words(file)
@@ -64,19 +66,48 @@ def do_dicts_for_all_file():
 
 def create_document_word_freq_matrix():
     for file, words in __word_freq_vector_file.items():
-        vec = []
-        for index, w in __re_dic.items():
+        vec = {}
+        for w, index in __dic.items():
             if w in words:
-                vec.append(words[w])
+                vec[w]=words[w]
             else:
-                vec.append(0)
+                vec[w]=0
         __freq_vector_file[file] = vec
+    matrix = pd.DataFrame(__freq_vector_file)
+    matrix = matrix.T.fillna(0).copy()
 
+    return matrix
+
+def calculate_tfidf(w, file, D):
+    n = matrix[w][file]
+    sum = matrix[w].sum()
+    tf = n / sum
+    d = len(matrix[matrix[w] > 0])
+    idf = math.log10(D / d)
+    tfidf = tf * idf
+    return tfidf
+
+def find_file(w, matrix):
+    D = len(matrix.index)
+    __tfidf = 0
+    result_file = ''
+
+    for file in matrix.index:
+        if w in __dic:
+            tfidf = calculate_tfidf(w,file, D)
+            if __tfidf < tfidf:
+                __tfidf = tfidf
+                result_file = file
+
+    return result_file
 
 
 if __name__ == '__main__':
     do_dicts_for_all_file()
-    create_document_word_freq_matrix()
+    matrix = create_document_word_freq_matrix()
+    print(matrix)
+    word = 'year'
+    file = find_file(word, matrix)
 
 
 
